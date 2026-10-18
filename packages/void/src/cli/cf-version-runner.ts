@@ -587,7 +587,7 @@ export function createCfVersionRunner(options: {
       if (!record(version) || version.id !== operation.versionId) {
         return failed('The Cloudflare Worker version was not readable.');
       }
-      // cf omits `bindings` for a version that has none.
+      // Cloudflare omits `bindings` for a version that has none.
       const bindings = version.bindings ?? [];
       if (!Array.isArray(bindings)) {
         return failed('The Cloudflare Worker version was not readable.');
