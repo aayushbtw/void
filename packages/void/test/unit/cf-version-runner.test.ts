@@ -147,17 +147,17 @@ it(
   REAL_CF_TIMEOUT_MS,
 );
 
-it('reads a version that cf returns without bindings as one with no bindings', async () => {
+it.each([
+  { label: 'missing', version: { id: 'version-id', number: 35 }, readable: true },
+  { label: 'null', version: { id: 'version-id', number: 35, bindings: null }, readable: false },
+  { label: 'an object', version: { id: 'version-id', number: 35, bindings: {} }, readable: false },
+])('reads a version whose bindings are $label', async ({ version, readable }) => {
   const prepared = await output();
   try {
     const runner = createCfVersionRunner({
       output: prepared,
       workerName: 'void-test',
-      runCf: () => ({
-        status: 0,
-        stdout: JSON.stringify({ id: 'version-id', number: 35 }),
-        stderr: '',
-      }),
+      runCf: () => ({ status: 0, stdout: JSON.stringify(version), stderr: '' }),
       verifyResources: async () => {
         throw new Error('A read must not provision or probe resources');
       },
@@ -166,8 +166,16 @@ it('reads a version that cf returns without bindings as one with no bindings', a
       { type: 'versions.view', versionId: 'version-id', workerName: 'void-test' },
       { capture: true },
     );
-    expect(result.status).toBe(0);
-    expect(result.data).toMatchObject({ bindings: [], resources: { bindings: [] } });
+    if (readable) {
+      // Cloudflare omits `bindings` for a version that has none.
+      expect(result.status).toBe(0);
+      expect(result.data).toMatchObject({ bindings: [], resources: { bindings: [] } });
+    } else {
+      expect(result).toMatchObject({
+        status: 1,
+        stderr: 'The Cloudflare Worker version was not readable.',
+      });
+    }
   } finally {
     await prepared.dispose();
   }
